@@ -15,6 +15,9 @@ export const plantivaRouter = createTRPCRouter({
       },
       orderBy: { time: 'asc' },
     });
+    // last24Hours.forEach(entry => {
+    //   console.log(entry.time);
+    // });
 
     const lastWatered = await ctx.db.data.findFirst({
       where: { watered: true },

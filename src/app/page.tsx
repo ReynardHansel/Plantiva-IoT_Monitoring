@@ -1,5 +1,6 @@
 // import { getServerAuthSession } from "~/server/auth";
 import { DashboardComponent } from "~/components/dashboard";
+import { DashboardComponent_Dummy } from "~/components/dashboard_dummy";
 import { api, HydrateClient } from "~/trpc/server";
 
 export default async function Home() {
@@ -7,6 +8,7 @@ export default async function Home() {
 
   return (
     <HydrateClient>
+      {/* <DashboardComponent_Dummy /> */}
       <DashboardComponent />
     </HydrateClient>
   );
