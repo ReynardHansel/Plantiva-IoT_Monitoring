@@ -24,10 +24,16 @@ export const plantivaRouter = createTRPCRouter({
       orderBy: { time: 'desc' },
     });
 
+    const lastFanned = await ctx.db.data.findFirst({
+      where: { fanned: true },
+      orderBy: { time: 'desc' },
+    });
+
     return {
       currentReading: lastReading,
       historicalData: last24Hours,
       lastWatered: lastWatered,
+      lastFanned: lastFanned,
     };
   }),
 });
