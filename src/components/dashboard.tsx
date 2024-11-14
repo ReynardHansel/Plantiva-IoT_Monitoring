@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import {
   LineChart,
@@ -37,8 +37,54 @@ const formatLastUpdated = (dateString: string) => {
   }
 };
 
+type ReadingType = {
+  id: number;
+  time: Date;
+  temperature: number;
+  air_humidity: number;
+  ground_humidity: number;
+  watered: boolean;
+  fanned: boolean;
+};
+
 export function DashboardComponent() {
   const { data, isLoading, error } = api.plantiva.getDashboardData.useQuery();
+  const [currentReading, setCurrentReading] = useState<ReadingType | null>(
+    null,
+  );
+
+  console.log("Query state:", { data, isLoading, error });
+
+  // api.plantiva.onUpdate.useSubscription(undefined, {
+  //   onData(newData) {
+  //     console.log("Received new data:", newData);
+  //     setCurrentReading((prevReading) => {
+  //       if (!prevReading) return null;
+  //       return {
+  //         ...prevReading,
+  //         ...newData,
+  //         time: new Date(),
+  //       };
+  //     });
+  //   },
+  // });
+
+  const latestReadingQuery = api.plantiva.getLatestReading.useQuery(undefined, {
+    refetchInterval: 100000, // Refetch every 5 seconds
+  });
+
+  useEffect(() => {
+    if (latestReadingQuery.data) {
+      setCurrentReading(latestReadingQuery.data);
+    }
+  }, [latestReadingQuery.data]);
+
+  useEffect(() => {
+    console.log("Data changed:", data);
+    if (data?.currentReading) {
+      setCurrentReading(data.currentReading);
+    }
+  }, [data]);
 
   if (isLoading)
     return (
@@ -47,11 +93,9 @@ export function DashboardComponent() {
       </div>
     );
   if (error) return <div>An error occurred: {error.message}</div>;
-  console.log("Raw historical data:", data?.historicalData);
 
-  const currentReading = data?.currentReading;
   const historicalData = data?.historicalData.map((reading) => ({
-    time: new Date(reading.time).toISOString().slice(11, 16), //* --> Ambil si bagian time nya aja, biar gausa urusan sama GMT+7 dll
+    time: new Date(reading.time).toISOString().slice(11, 16),
     temperature: reading.temperature,
     airHumidity: reading.air_humidity,
     groundHumidity: reading.ground_humidity,
@@ -77,7 +121,10 @@ export function DashboardComponent() {
                 {currentReading?.temperature.toFixed(1)}°C
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Last Updated: {formatLastUpdated(currentReading?.time ?? "")}
+                Last Updated:{" "}
+                {currentReading
+                  ? formatLastUpdated(currentReading.time.toISOString())
+                  : "N/A"}
               </p>
             </CardContent>
           </Card>
@@ -93,7 +140,10 @@ export function DashboardComponent() {
                 {currentReading?.air_humidity.toFixed(1)}%
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Last Updated: {formatLastUpdated(currentReading?.time ?? "")}
+                Last Updated:{" "}
+                {currentReading
+                  ? formatLastUpdated(currentReading.time.toISOString())
+                  : "N/A"}
               </p>
             </CardContent>
           </Card>
@@ -109,7 +159,10 @@ export function DashboardComponent() {
                 {currentReading?.ground_humidity.toFixed(1)}%
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Last Updated: {formatLastUpdated(currentReading?.time ?? "")}
+                Last Updated:{" "}
+                {currentReading
+                  ? formatLastUpdated(currentReading.time.toISOString())
+                  : "N/A"}
               </p>
             </CardContent>
           </Card>
@@ -162,7 +215,9 @@ export function DashboardComponent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {lastWatered ? formatLastUpdated(lastWatered.time) : "N/A"}
+                {lastWatered
+                  ? formatLastUpdated(lastWatered.time.toISOString())
+                  : "N/A"}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Next watering schedule not available
@@ -177,10 +232,12 @@ export function DashboardComponent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {lastFanned ? formatLastUpdated(lastFanned.time) : "N/A"}
+                {lastFanned
+                  ? formatLastUpdated(lastFanned.time.toISOString())
+                  : "N/A"}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Next watering schedule not available
+                Next fanning schedule not available
               </p>
             </CardContent>
           </Card>
