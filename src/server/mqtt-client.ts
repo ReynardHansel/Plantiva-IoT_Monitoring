@@ -1,8 +1,9 @@
 import * as mqtt from "mqtt";
 import { db } from "~/server/db";
 
-const MQTT_BROKER_URL = "mqtt://192.168.253.62:1873";
-const MQTT_TOPIC = "data/sensor";
+const MQTT_BROKER_URL = "ws://localhost:8080";
+const TOPIC_SENSOR = "data/sensor";
+const TOPIC_ACTUATOR = "data/actuator";
 
 let client: mqtt.MqttClient | null = null;
 
@@ -11,23 +12,35 @@ export function initMqttClient() {
 
   client = mqtt.connect(MQTT_BROKER_URL);
 
+  //* ON CONNECT:
   client.on("connect", () => {
     console.log("Connected to MQTT broker");
-    client!.subscribe(MQTT_TOPIC, (err) => {
+
+    client!.subscribe(TOPIC_SENSOR, (err) => {
       if (err) {
         console.error("Error subscribing to topic:", err);
       } else {
-        console.log(`Subscribed to topic: ${MQTT_TOPIC}`);
+        console.log(`Subscribed to topic: ${TOPIC_SENSOR}`);
+      }
+    });
+
+    client!.subscribe(TOPIC_ACTUATOR, (err) => {
+      if (err) {
+        console.error("Error subscribing to topic:", err);
+      } else {
+        console.log(`Subscribed to topic: ${TOPIC_ACTUATOR}`);
       }
     });
   });
 
   client.on("message", async (topic, message) => {
     console.log(`Received message on topic ${topic}: ${message.toString()}`);
-
+  
     try {
       const data = JSON.parse(message.toString());
-      await db.data.create({
+      console.log("Parsed data:", data); // Log the parsed data
+  
+      const createdData = await db.data.create({
         data: {
           temperature: data.temperature,
           air_humidity: data.air_humidity,
@@ -36,7 +49,8 @@ export function initMqttClient() {
           fanned: data.fanned,
         },
       });
-      console.log("Data saved to database");
+  
+      console.log("Data saved to database:", createdData); // Log the created data
     } catch (error) {
       console.error("Error saving data to database:", error);
     }
@@ -45,7 +59,12 @@ export function initMqttClient() {
   client.on("error", (err) => {
     // console.error("reached here");
     console.error("MQTT client error:", err);
+    client!.end();
   });
+
+  client.on("close", () => {
+    console.log("Disconnected from MQTT broker");
+  })
 }
 
 export function getMqttClient() {

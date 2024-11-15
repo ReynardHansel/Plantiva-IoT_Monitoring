@@ -2,7 +2,7 @@ import net from 'net';
 import { db } from '~/server/db';
 import EventEmitter from 'events';
 
-const TCP_PORT = 1773;
+const TCP_PORT = 8080;
 export const dataEventEmitter = new EventEmitter();
 
 const server = net.createServer((socket) => {

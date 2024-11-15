@@ -55,6 +55,7 @@ export function DashboardComponent() {
 
   console.log("Query state:", { data, isLoading, error });
 
+  //* MQTT METHOD:
   // api.plantiva.onUpdate.useSubscription(undefined, {
   //   onData(newData) {
   //     console.log("Received new data:", newData);
@@ -69,15 +70,16 @@ export function DashboardComponent() {
   //   },
   // });
 
-  const latestReadingQuery = api.plantiva.getLatestReading.useQuery(undefined, {
-    refetchInterval: 100000, // Refetch every 5 seconds
-  });
+  //* TCP METHOD:
+  // const latestReadingQuery = api.plantiva.getLatestReading.useQuery(undefined, {
+  //   refetchInterval: 100000, // Refetch every 5 seconds
+  // });
 
-  useEffect(() => {
-    if (latestReadingQuery.data) {
-      setCurrentReading(latestReadingQuery.data);
-    }
-  }, [latestReadingQuery.data]);
+  // useEffect(() => {
+  //   if (latestReadingQuery.data) {
+  //     setCurrentReading(latestReadingQuery.data);
+  //   }
+  // }, [latestReadingQuery.data]);
 
   useEffect(() => {
     console.log("Data changed:", data);
