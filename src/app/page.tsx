@@ -10,8 +10,8 @@ export default async function Home() {
   return (
     <HydrateClient>
       {/* <DashboardComponent_Dummy /> */}
-      <DashboardComponent />
-      {/* <Dummy /> */}
+      {/* <DashboardComponent /> */}
+      <Dummy />
     </HydrateClient>
   );
 }
