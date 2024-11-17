@@ -366,3 +366,8 @@ export function DashboardComponent() {
     </div>
   );
 }
+
+// TODO:
+// - Cut all time by -7 because of timezone GMT+7
+// - Make the chart display in interval of 1h only
+// - Seperate MQTT logic to mqtt-client
