@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { Droplet, Thermometer, Wind, Fan } from "lucide-react";
 import { api } from "~/trpc/react";
+import mqtt from "mqtt";
 
 // Helper function to format the last updated time and date using ISO string slicing
 const formatLastUpdated = (dateString: string) => {
@@ -47,39 +48,129 @@ type ReadingType = {
   fanned: boolean;
 };
 
+interface Message {
+  topic: string;
+  msg: string;
+}
+
+interface SensorData {
+  temperature: number;
+  air_humidity: number;
+  ground_humidity: number;
+}
+
+interface ActuatorData {
+  watered: boolean;
+  fanned: boolean;
+}
+
 export function DashboardComponent() {
   const { data, isLoading, error } = api.plantiva.getDashboardData.useQuery();
-  const [currentReading, setCurrentReading] = useState<ReadingType | null>(
-    null,
-  );
+  const [currentReading, setCurrentReading] = useState<ReadingType | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [sensorData, setSensorData] = useState<SensorData | null>(null);
+  const [actuatorData, setActuatorData] = useState<ActuatorData | null>(null);
 
-  console.log("Query state:", { data, isLoading, error });
+  const saveDataMutation = api.plantiva.saveData.useMutation();
+  const getLastReadingQuery = api.plantiva.getLastReading.useQuery();
 
-  //* MQTT METHOD:
-  // api.plantiva.onUpdate.useSubscription(undefined, {
-  //   onData(newData) {
-  //     console.log("Received new data:", newData);
-  //     setCurrentReading((prevReading) => {
-  //       if (!prevReading) return null;
-  //       return {
-  //         ...prevReading,
-  //         ...newData,
-  //         time: new Date(),
-  //       };
-  //     });
-  //   },
-  // });
+  useEffect(() => {
+    const client = mqtt.connect("ws://localhost:8080");
 
-  //* TCP METHOD:
-  // const latestReadingQuery = api.plantiva.getLatestReading.useQuery(undefined, {
-  //   refetchInterval: 100000, // Refetch every 5 seconds
-  // });
+    client.on("connect", () => {
+      console.log("Connected to the broker");
 
-  // useEffect(() => {
-  //   if (latestReadingQuery.data) {
-  //     setCurrentReading(latestReadingQuery.data);
-  //   }
-  // }, [latestReadingQuery.data]);
+      const topic1 = "data/sensor";
+      const topic2 = "data/actuator";
+
+      client.subscribe(topic1, (err) => {
+        if (err) {
+          console.error("Subscription error:", err);
+        } else {
+          console.log(`Subscribed to topic '${topic1}'`);
+        }
+      });
+
+      client.subscribe(topic2, (err) => {
+        if (err) {
+          console.error("Subscription error:", err);
+        } else {
+          console.log(`Subscribed to topic '${topic2}'`);
+        }
+      });
+    });
+
+    client.on("message", async (topic, message) => {
+      const msg = message.toString();
+      console.log(`Received message from '${topic}': ${msg}`);
+      setMessages((prevMessages) => [...prevMessages, { topic, msg }]);
+
+      try {
+        const lastReading = getLastReadingQuery.data;
+
+        if (topic === "data/sensor") {
+          const data: SensorData = JSON.parse(msg);
+          setSensorData(data);
+
+          if (lastReading) {
+            // Save sensor data to the database
+            const combinedData = {
+              temperature: data.temperature,
+              air_humidity: data.air_humidity,
+              ground_humidity: data.ground_humidity,
+              watered: lastReading.watered,
+              fanned: lastReading.fanned,
+            };
+
+            console.log("Combined sensor data to save:", combinedData);
+
+            await saveDataMutation.mutateAsync(combinedData);
+
+            console.log("Sensor data sent to tRPC for saving");
+          } else {
+            console.error("No last reading available to combine with sensor data");
+          }
+        } else if (topic === "data/actuator") {
+          const data: ActuatorData = JSON.parse(msg);
+          setActuatorData(data);
+
+          if (lastReading) {
+            // Save actuator data to the database
+            const combinedData = {
+              temperature: lastReading.temperature,
+              air_humidity: lastReading.air_humidity,
+              ground_humidity: lastReading.ground_humidity,
+              watered: data.watered,
+              fanned: data.fanned,
+            };
+
+            console.log("Combined actuator data to save:", combinedData);
+
+            await saveDataMutation.mutateAsync(combinedData);
+
+            console.log("Actuator data sent to tRPC for saving");
+          } else {
+            console.error("No last reading available to combine with actuator data");
+          }
+        }
+      } catch (error) {
+        console.error("Error processing message:", error);
+      }
+    });
+
+    client.on("error", (err) => {
+      console.error("Connection error:", err);
+      client.end();
+    });
+
+    client.on("close", () => {
+      console.log("Disconnected from the broker");
+    });
+
+    return () => {
+      client.end();
+    };
+  }, [sensorData, actuatorData, saveDataMutation, getLastReadingQuery.data]);
 
   useEffect(() => {
     console.log("Data changed:", data);
@@ -120,11 +211,14 @@ export function DashboardComponent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {currentReading?.temperature.toFixed(1)}°C
+                {sensorData?.temperature.toFixed(1) ??
+                  currentReading?.temperature.toFixed(1)}°C
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Last Updated:{" "}
-                {currentReading
+                {sensorData
+                  ? "Live"
+                  : currentReading
                   ? formatLastUpdated(currentReading.time.toISOString())
                   : "N/A"}
               </p>
@@ -139,11 +233,14 @@ export function DashboardComponent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {currentReading?.air_humidity.toFixed(1)}%
+                {sensorData?.air_humidity.toFixed(1) ??
+                  currentReading?.air_humidity.toFixed(1)}%
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Last Updated:{" "}
-                {currentReading
+                {sensorData
+                  ? "Live"
+                  : currentReading
                   ? formatLastUpdated(currentReading.time.toISOString())
                   : "N/A"}
               </p>
@@ -158,11 +255,14 @@ export function DashboardComponent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {currentReading?.ground_humidity.toFixed(1)}%
+                {sensorData?.ground_humidity.toFixed(1) ??
+                  currentReading?.ground_humidity.toFixed(1)}%
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Last Updated:{" "}
-                {currentReading
+                {sensorData
+                  ? "Live"
+                  : currentReading
                   ? formatLastUpdated(currentReading.time.toISOString())
                   : "N/A"}
               </p>

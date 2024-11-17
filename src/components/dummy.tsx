@@ -134,6 +134,9 @@ export default function Dummy() {
           <strong>Sensor Data:</strong> {JSON.stringify(sensorData)}
           <strong>Actuator Data:</strong> {JSON.stringify(actuatorData)}
         </div>
+        <div className="mb-4">
+          <p>Temperature: {sensorData?.temperature}</p>
+        </div>
         {messages.map((message, index) => (
           <div key={index}>
             <strong>{message.topic}:</strong> {message.msg}

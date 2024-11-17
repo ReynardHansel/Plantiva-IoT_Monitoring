@@ -97,10 +97,4 @@ export const plantivaRouter = createTRPCRouter({
       yield data;
     }
   }),
-
-  getLatestReading: publicProcedure.query(async ({ ctx }) => {
-    return ctx.db.data.findFirst({
-      orderBy: { time: "desc" },
-    });
-  }),
 });
