@@ -72,19 +72,21 @@ export function DashboardComponent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [actuatorData, setActuatorData] = useState<ActuatorData | null>(null);
+  const [lastWateredTime, setLastWateredTime] = useState<string | null>(null);
+  const [lastFannedTime, setLastFannedTime] = useState<string | null>(null);
 
   const saveDataMutation = api.plantiva.saveData.useMutation();
   const getLastReadingQuery = api.plantiva.getLastReading.useQuery();
 
   useEffect(() => {
     const client = mqtt.connect("ws://localhost:8080");
-  
+
     client.on("connect", () => {
       console.log("Connected to the broker");
-  
+
       const topic1 = "data/sensor";
       const topic2 = "data/actuator";
-  
+
       client.subscribe(topic1, (err) => {
         if (err) {
           console.error("Subscription error:", err);
@@ -92,7 +94,7 @@ export function DashboardComponent() {
           console.log(`Subscribed to topic '${topic1}'`);
         }
       });
-  
+
       client.subscribe(topic2, (err) => {
         if (err) {
           console.error("Subscription error:", err);
@@ -101,20 +103,20 @@ export function DashboardComponent() {
         }
       });
     });
-  
+
     client.on("message", async (topic, message) => {
       const msg = message.toString();
       console.log(`Received message from '${topic}': ${msg}`);
       setMessages((prevMessages) => [...prevMessages, { topic, msg }]);
-  
+
       try {
         const lastReading = getLastReadingQuery.data;
         const currentTime = new Date().toISOString();
-  
+
         if (topic === "data/sensor") {
           const data: SensorData = { ...JSON.parse(msg), time: currentTime };
           setSensorData(data);
-  
+
           const combinedData = {
             temperature: data.temperature,
             air_humidity: data.air_humidity,
@@ -122,19 +124,27 @@ export function DashboardComponent() {
             watered: lastReading?.watered ?? false,
             fanned: lastReading?.fanned ?? false,
           };
-  
+
           console.log("Combined sensor data to save:", combinedData);
-  
+
           await saveDataMutation.mutateAsync(combinedData);
-  
+
           console.log("Sensor data sent to tRPC for saving");
         } else if (topic === "data/actuator") {
           const data: ActuatorData = { ...JSON.parse(msg), time: currentTime };
           setActuatorData(data);
-  
+
+          // Update last watered and fanned times if the actuator data is true
+          if (data.watered) {
+            setLastWateredTime(data.time);
+          }
+          if (data.fanned) {
+            setLastFannedTime(data.time);
+          }
+
           // Fetch the latest sensor data before saving the actuator data
           const latestSensorData = await getLastReadingQuery.refetch();
-  
+
           const combinedData = {
             temperature: latestSensorData.data?.temperature ?? 0,
             air_humidity: latestSensorData.data?.air_humidity ?? 0,
@@ -142,27 +152,27 @@ export function DashboardComponent() {
             watered: data.watered,
             fanned: data.fanned,
           };
-  
+
           console.log("Combined actuator data to save:", combinedData);
-  
+
           await saveDataMutation.mutateAsync(combinedData);
-  
+
           console.log("Actuator data sent to tRPC for saving");
         }
       } catch (error) {
         console.error("Error processing message:", error);
       }
     });
-  
+
     client.on("error", (err) => {
       console.error("Connection error:", err);
       client.end();
     });
-  
+
     client.on("close", () => {
       console.log("Disconnected from the broker");
     });
-  
+
     return () => {
       client.end();
     };
@@ -172,6 +182,12 @@ export function DashboardComponent() {
     console.log("Data changed:", data);
     if (data?.currentReading) {
       setCurrentReading(data.currentReading);
+    }
+    if (data?.lastWatered) {
+      setLastWateredTime(data.lastWatered.time.toISOString());
+    }
+    if (data?.lastFanned) {
+      setLastFannedTime(data.lastFanned.time.toISOString());
     }
   }, [data]);
 
@@ -189,8 +205,16 @@ export function DashboardComponent() {
     airHumidity: reading.air_humidity,
     groundHumidity: reading.ground_humidity,
   }));
-  const lastWatered = data?.lastWatered;
-  const lastFanned = data?.lastFanned;
+
+  const getLastUpdatedTime = (actuatorDataTime: string | null, lastReadingTime: string | null) => {
+    if (actuatorDataTime) {
+      return formatLastUpdated(actuatorDataTime);
+    } else if (lastReadingTime) {
+      return formatLastUpdated(lastReadingTime);
+    } else {
+      return "N/A";
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8">
@@ -309,13 +333,10 @@ export function DashboardComponent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {actuatorData?.watered
-                  ? formatLastUpdated(actuatorData.time)
-                  : lastWatered
-                  ? formatLastUpdated(lastWatered.time.toISOString())
-                  : currentReading
-                  ? formatLastUpdated(currentReading.time.toISOString())
-                  : "N/A"}
+                {getLastUpdatedTime(
+                  actuatorData?.watered ? actuatorData.time : null,
+                  lastWateredTime
+                )}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Next watering schedule not available
@@ -330,13 +351,10 @@ export function DashboardComponent() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {actuatorData?.fanned
-                  ? formatLastUpdated(actuatorData.time)
-                  : lastFanned
-                  ? formatLastUpdated(lastFanned.time.toISOString())
-                  : currentReading
-                  ? formatLastUpdated(currentReading.time.toISOString())
-                  : "N/A"}
+                {getLastUpdatedTime(
+                  actuatorData?.fanned ? actuatorData.time : null,
+                  lastFannedTime
+                )}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Next fanning schedule not available
