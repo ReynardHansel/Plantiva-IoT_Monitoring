@@ -68,7 +68,9 @@ interface ActuatorData {
 
 export function DashboardComponent() {
   const { data, isLoading, error } = api.plantiva.getDashboardData.useQuery();
-  const [currentReading, setCurrentReading] = useState<ReadingType | null>(null);
+  const [currentReading, setCurrentReading] = useState<ReadingType | null>(
+    null,
+  );
   const [messages, setMessages] = useState<Message[]>([]);
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [actuatorData, setActuatorData] = useState<ActuatorData | null>(null);
@@ -131,7 +133,9 @@ export function DashboardComponent() {
 
             console.log("Sensor data sent to tRPC for saving");
           } else {
-            console.error("No last reading available to combine with sensor data");
+            console.error(
+              "No last reading available to combine with sensor data",
+            );
           }
         } else if (topic === "data/actuator") {
           const data: ActuatorData = { ...JSON.parse(msg), time: currentTime };
@@ -153,7 +157,9 @@ export function DashboardComponent() {
 
             console.log("Actuator data sent to tRPC for saving");
           } else {
-            console.error("No last reading available to combine with actuator data");
+            console.error(
+              "No last reading available to combine with actuator data",
+            );
           }
         }
       } catch (error) {
@@ -215,15 +221,17 @@ export function DashboardComponent() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {sensorData?.temperature.toFixed(1) ??
-                  currentReading?.temperature.toFixed(1)}°C
+                  currentReading?.temperature.toFixed(1) ??
+                  "N/A"}
+                °C
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Last Updated:{" "}
                 {sensorData
                   ? formatLastUpdated(sensorData.time)
                   : currentReading
-                  ? formatLastUpdated(currentReading.time.toISOString())
-                  : "N/A"}
+                    ? formatLastUpdated(currentReading.time.toISOString())
+                    : "N/A"}
               </p>
             </CardContent>
           </Card>
@@ -237,15 +245,17 @@ export function DashboardComponent() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {sensorData?.air_humidity.toFixed(1) ??
-                  currentReading?.air_humidity.toFixed(1)}%
+                  currentReading?.air_humidity.toFixed(1) ??
+                  "N/A"}
+                %
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Last Updated:{" "}
                 {sensorData
                   ? formatLastUpdated(sensorData.time)
                   : currentReading
-                  ? formatLastUpdated(currentReading.time.toISOString())
-                  : "N/A"}
+                    ? formatLastUpdated(currentReading.time.toISOString())
+                    : "N/A"}
               </p>
             </CardContent>
           </Card>
@@ -259,15 +269,17 @@ export function DashboardComponent() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {sensorData?.ground_humidity.toFixed(1) ??
-                  currentReading?.ground_humidity.toFixed(1)}%
+                  currentReading?.ground_humidity.toFixed(1) ??
+                  "N/A"}
+                %
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Last Updated:{" "}
                 {sensorData
                   ? formatLastUpdated(sensorData.time)
                   : currentReading
-                  ? formatLastUpdated(currentReading.time.toISOString())
-                  : "N/A"}
+                    ? formatLastUpdated(currentReading.time.toISOString())
+                    : "N/A"}
               </p>
             </CardContent>
           </Card>
@@ -323,10 +335,10 @@ export function DashboardComponent() {
                 {actuatorData?.watered
                   ? formatLastUpdated(actuatorData.time)
                   : lastWatered
-                  ? formatLastUpdated(lastWatered.time.toISOString())
-                  : currentReading
-                  ? formatLastUpdated(currentReading.time.toISOString())
-                  : "N/A"}
+                    ? formatLastUpdated(lastWatered.time.toISOString())
+                    : currentReading
+                      ? formatLastUpdated(currentReading.time.toISOString())
+                      : "N/A"}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Next watering schedule not available
@@ -344,10 +356,10 @@ export function DashboardComponent() {
                 {actuatorData?.fanned
                   ? formatLastUpdated(actuatorData.time)
                   : lastFanned
-                  ? formatLastUpdated(lastFanned.time.toISOString())
-                  : currentReading
-                  ? formatLastUpdated(currentReading.time.toISOString())
-                  : "N/A"}
+                    ? formatLastUpdated(lastFanned.time.toISOString())
+                    : currentReading
+                      ? formatLastUpdated(currentReading.time.toISOString())
+                      : "N/A"}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Next fanning schedule not available
