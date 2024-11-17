@@ -68,9 +68,7 @@ interface ActuatorData {
 
 export function DashboardComponent() {
   const { data, isLoading, error } = api.plantiva.getDashboardData.useQuery();
-  const [currentReading, setCurrentReading] = useState<ReadingType | null>(
-    null,
-  );
+  const [currentReading, setCurrentReading] = useState<ReadingType | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [actuatorData, setActuatorData] = useState<ActuatorData | null>(null);
@@ -80,13 +78,13 @@ export function DashboardComponent() {
 
   useEffect(() => {
     const client = mqtt.connect("ws://localhost:8080");
-
+  
     client.on("connect", () => {
       console.log("Connected to the broker");
-
+  
       const topic1 = "data/sensor";
       const topic2 = "data/actuator";
-
+  
       client.subscribe(topic1, (err) => {
         if (err) {
           console.error("Subscription error:", err);
@@ -94,7 +92,7 @@ export function DashboardComponent() {
           console.log(`Subscribed to topic '${topic1}'`);
         }
       });
-
+  
       client.subscribe(topic2, (err) => {
         if (err) {
           console.error("Subscription error:", err);
@@ -103,83 +101,72 @@ export function DashboardComponent() {
         }
       });
     });
-
+  
     client.on("message", async (topic, message) => {
       const msg = message.toString();
       console.log(`Received message from '${topic}': ${msg}`);
       setMessages((prevMessages) => [...prevMessages, { topic, msg }]);
-
+  
       try {
         const lastReading = getLastReadingQuery.data;
         const currentTime = new Date().toISOString();
-
+  
         if (topic === "data/sensor") {
           const data: SensorData = { ...JSON.parse(msg), time: currentTime };
           setSensorData(data);
-
-          if (lastReading) {
-            // Save sensor data to the database
-            const combinedData = {
-              temperature: data.temperature,
-              air_humidity: data.air_humidity,
-              ground_humidity: data.ground_humidity,
-              watered: lastReading.watered,
-              fanned: lastReading.fanned,
-            };
-
-            console.log("Combined sensor data to save:", combinedData);
-
-            await saveDataMutation.mutateAsync(combinedData);
-
-            console.log("Sensor data sent to tRPC for saving");
-          } else {
-            console.error(
-              "No last reading available to combine with sensor data",
-            );
-          }
+  
+          const combinedData = {
+            temperature: data.temperature,
+            air_humidity: data.air_humidity,
+            ground_humidity: data.ground_humidity,
+            watered: lastReading?.watered ?? false,
+            fanned: lastReading?.fanned ?? false,
+          };
+  
+          console.log("Combined sensor data to save:", combinedData);
+  
+          await saveDataMutation.mutateAsync(combinedData);
+  
+          console.log("Sensor data sent to tRPC for saving");
         } else if (topic === "data/actuator") {
           const data: ActuatorData = { ...JSON.parse(msg), time: currentTime };
           setActuatorData(data);
-
-          if (lastReading) {
-            // Save actuator data to the database
-            const combinedData = {
-              temperature: lastReading.temperature,
-              air_humidity: lastReading.air_humidity,
-              ground_humidity: lastReading.ground_humidity,
-              watered: data.watered,
-              fanned: data.fanned,
-            };
-
-            console.log("Combined actuator data to save:", combinedData);
-
-            await saveDataMutation.mutateAsync(combinedData);
-
-            console.log("Actuator data sent to tRPC for saving");
-          } else {
-            console.error(
-              "No last reading available to combine with actuator data",
-            );
-          }
+  
+          // Fetch the latest sensor data before saving the actuator data
+          const latestSensorData = await getLastReadingQuery.refetch();
+  
+          const combinedData = {
+            temperature: latestSensorData.data?.temperature ?? 0,
+            air_humidity: latestSensorData.data?.air_humidity ?? 0,
+            ground_humidity: latestSensorData.data?.ground_humidity ?? 0,
+            watered: data.watered,
+            fanned: data.fanned,
+          };
+  
+          console.log("Combined actuator data to save:", combinedData);
+  
+          await saveDataMutation.mutateAsync(combinedData);
+  
+          console.log("Actuator data sent to tRPC for saving");
         }
       } catch (error) {
         console.error("Error processing message:", error);
       }
     });
-
+  
     client.on("error", (err) => {
       console.error("Connection error:", err);
       client.end();
     });
-
+  
     client.on("close", () => {
       console.log("Disconnected from the broker");
     });
-
+  
     return () => {
       client.end();
     };
-  }, [sensorData, actuatorData, saveDataMutation, getLastReadingQuery.data]);
+  }, [sensorData, actuatorData, saveDataMutation, getLastReadingQuery]);
 
   useEffect(() => {
     console.log("Data changed:", data);
@@ -221,41 +208,35 @@ export function DashboardComponent() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {sensorData?.temperature.toFixed(1) ??
-                  currentReading?.temperature.toFixed(1) ??
-                  "N/A"}
-                °C
+                  currentReading?.temperature.toFixed(1) ?? "N/A"}°C
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Last Updated:{" "}
                 {sensorData
                   ? formatLastUpdated(sensorData.time)
                   : currentReading
-                    ? formatLastUpdated(currentReading.time.toISOString())
-                    : "N/A"}
+                  ? formatLastUpdated(currentReading.time.toISOString())
+                  : "N/A"}
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Air Humidity
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Air Humidity</CardTitle>
               <Wind className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {sensorData?.air_humidity.toFixed(1) ??
-                  currentReading?.air_humidity.toFixed(1) ??
-                  "N/A"}
-                %
+                  currentReading?.air_humidity.toFixed(1) ?? "N/A"}%
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Last Updated:{" "}
                 {sensorData
                   ? formatLastUpdated(sensorData.time)
                   : currentReading
-                    ? formatLastUpdated(currentReading.time.toISOString())
-                    : "N/A"}
+                  ? formatLastUpdated(currentReading.time.toISOString())
+                  : "N/A"}
               </p>
             </CardContent>
           </Card>
@@ -269,17 +250,15 @@ export function DashboardComponent() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {sensorData?.ground_humidity.toFixed(1) ??
-                  currentReading?.ground_humidity.toFixed(1) ??
-                  "N/A"}
-                %
+                  currentReading?.ground_humidity.toFixed(1) ?? "N/A"}%
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Last Updated:{" "}
                 {sensorData
                   ? formatLastUpdated(sensorData.time)
                   : currentReading
-                    ? formatLastUpdated(currentReading.time.toISOString())
-                    : "N/A"}
+                  ? formatLastUpdated(currentReading.time.toISOString())
+                  : "N/A"}
               </p>
             </CardContent>
           </Card>
@@ -325,9 +304,7 @@ export function DashboardComponent() {
         <div className="grid grid-cols-2 gap-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Last Watered
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Last Watered</CardTitle>
               <Droplet className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
             </CardHeader>
             <CardContent>
@@ -335,10 +312,10 @@ export function DashboardComponent() {
                 {actuatorData?.watered
                   ? formatLastUpdated(actuatorData.time)
                   : lastWatered
-                    ? formatLastUpdated(lastWatered.time.toISOString())
-                    : currentReading
-                      ? formatLastUpdated(currentReading.time.toISOString())
-                      : "N/A"}
+                  ? formatLastUpdated(lastWatered.time.toISOString())
+                  : currentReading
+                  ? formatLastUpdated(currentReading.time.toISOString())
+                  : "N/A"}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Next watering schedule not available
@@ -356,10 +333,10 @@ export function DashboardComponent() {
                 {actuatorData?.fanned
                   ? formatLastUpdated(actuatorData.time)
                   : lastFanned
-                    ? formatLastUpdated(lastFanned.time.toISOString())
-                    : currentReading
-                      ? formatLastUpdated(currentReading.time.toISOString())
-                      : "N/A"}
+                  ? formatLastUpdated(lastFanned.time.toISOString())
+                  : currentReading
+                  ? formatLastUpdated(currentReading.time.toISOString())
+                  : "N/A"}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Next fanning schedule not available
