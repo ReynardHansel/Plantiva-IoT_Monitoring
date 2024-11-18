@@ -19,6 +19,7 @@ import mqtt from "mqtt";
 // Helper function to format the last updated time and date using ISO string slicing
 const formatLastUpdated = (dateString: string) => {
   const date = new Date(dateString);
+  date.setHours(date.getHours() + 7); // Adjust for GMT+7
   const now = new Date();
   const timeDiff = now.getTime() - date.getTime();
   const hoursDiff = timeDiff / (1000 * 3600);
@@ -68,7 +69,9 @@ interface ActuatorData {
 
 export function DashboardComponent() {
   const { data, isLoading, error } = api.plantiva.getDashboardData.useQuery();
-  const [currentReading, setCurrentReading] = useState<ReadingType | null>(null);
+  const [currentReading, setCurrentReading] = useState<ReadingType | null>(
+    null,
+  );
   const [messages, setMessages] = useState<Message[]>([]);
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [actuatorData, setActuatorData] = useState<ActuatorData | null>(null);
@@ -125,6 +128,7 @@ export function DashboardComponent() {
             fanned: lastReading?.fanned ?? false,
           };
 
+          console.log("Current time:", currentTime);
           console.log("Combined sensor data to save:", combinedData);
 
           await saveDataMutation.mutateAsync(combinedData);
@@ -206,7 +210,10 @@ export function DashboardComponent() {
     groundHumidity: reading.ground_humidity,
   }));
 
-  const getLastUpdatedTime = (actuatorDataTime: string | null, lastReadingTime: string | null) => {
+  const getLastUpdatedTime = (
+    actuatorDataTime: string | null,
+    lastReadingTime: string | null,
+  ) => {
     if (actuatorDataTime) {
       return formatLastUpdated(actuatorDataTime);
     } else if (lastReadingTime) {
@@ -232,35 +239,41 @@ export function DashboardComponent() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {sensorData?.temperature.toFixed(1) ??
-                  currentReading?.temperature.toFixed(1) ?? "N/A"}°C
+                  currentReading?.temperature.toFixed(1) ??
+                  "N/A"}
+                °C
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Last Updated:{" "}
                 {sensorData
                   ? formatLastUpdated(sensorData.time)
                   : currentReading
-                  ? formatLastUpdated(currentReading.time.toISOString())
-                  : "N/A"}
+                    ? formatLastUpdated(currentReading.time.toISOString())
+                    : "N/A"}
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Air Humidity</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Air Humidity
+              </CardTitle>
               <Wind className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {sensorData?.air_humidity.toFixed(1) ??
-                  currentReading?.air_humidity.toFixed(1) ?? "N/A"}%
+                  currentReading?.air_humidity.toFixed(1) ??
+                  "N/A"}
+                %
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Last Updated:{" "}
                 {sensorData
                   ? formatLastUpdated(sensorData.time)
                   : currentReading
-                  ? formatLastUpdated(currentReading.time.toISOString())
-                  : "N/A"}
+                    ? formatLastUpdated(currentReading.time.toISOString())
+                    : "N/A"}
               </p>
             </CardContent>
           </Card>
@@ -274,15 +287,17 @@ export function DashboardComponent() {
             <CardContent>
               <div className="text-2xl font-bold">
                 {sensorData?.ground_humidity.toFixed(1) ??
-                  currentReading?.ground_humidity.toFixed(1) ?? "N/A"}%
+                  currentReading?.ground_humidity.toFixed(1) ??
+                  "N/A"}
+                %
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Last Updated:{" "}
                 {sensorData
                   ? formatLastUpdated(sensorData.time)
                   : currentReading
-                  ? formatLastUpdated(currentReading.time.toISOString())
-                  : "N/A"}
+                    ? formatLastUpdated(currentReading.time.toISOString())
+                    : "N/A"}
               </p>
             </CardContent>
           </Card>
@@ -328,14 +343,16 @@ export function DashboardComponent() {
         <div className="grid grid-cols-2 gap-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Last Watered</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Last Watered
+              </CardTitle>
               <Droplet className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {getLastUpdatedTime(
                   actuatorData?.watered ? actuatorData.time : null,
-                  lastWateredTime
+                  lastWateredTime,
                 )}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -353,7 +370,7 @@ export function DashboardComponent() {
               <div className="text-2xl font-bold">
                 {getLastUpdatedTime(
                   actuatorData?.fanned ? actuatorData.time : null,
-                  lastFannedTime
+                  lastFannedTime,
                 )}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">

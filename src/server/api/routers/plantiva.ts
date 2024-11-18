@@ -48,10 +48,13 @@ export const plantivaRouter = createTRPCRouter({
         fanned: z.boolean(),
       }),
     )
-
     .mutation(async ({ input, ctx }) => {
+      const adjustedTime = new Date();
+      adjustedTime.setHours(adjustedTime.getHours() + 7);
+
       const createdData = await ctx.db.data.create({
         data: {
+          time: adjustedTime,
           temperature: input.temperature,
           air_humidity: input.air_humidity,
           ground_humidity: input.ground_humidity,
