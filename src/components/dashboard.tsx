@@ -19,7 +19,6 @@ import mqtt from "mqtt";
 // Helper function to format the last updated time and date using ISO string slicing
 const formatLastUpdated = (dateString: string) => {
   const date = new Date(dateString);
-  date.setHours(date.getHours() + 7); // Adjust for GMT+7
   const now = new Date();
   const timeDiff = now.getTime() - date.getTime();
   const hoursDiff = timeDiff / (1000 * 3600);
@@ -82,7 +81,7 @@ export function DashboardComponent() {
   const getLastReadingQuery = api.plantiva.getLastReading.useQuery();
 
   useEffect(() => {
-    const client = mqtt.connect("ws://localhost:8080");
+    const client = mqtt.connect("ws://192.168.170.62:8181");
 
     client.on("connect", () => {
       console.log("Connected to the broker");
@@ -114,10 +113,12 @@ export function DashboardComponent() {
 
       try {
         const lastReading = getLastReadingQuery.data;
-        const currentTime = new Date().toISOString();
+        const currentTime = new Date();
+        currentTime.setHours(currentTime.getHours() + 7); // Adjust for GMT+7
+        const currentTimeString = currentTime.toISOString();
 
         if (topic === "data/sensor") {
-          const data: SensorData = { ...JSON.parse(msg), time: currentTime };
+          const data: SensorData = { ...JSON.parse(msg), time: currentTimeString };
           setSensorData(data);
 
           const combinedData = {
@@ -128,14 +129,15 @@ export function DashboardComponent() {
             fanned: lastReading?.fanned ?? false,
           };
 
-          console.log("Current time:", currentTime);
+          console.log("Current time:", currentTimeString);
           console.log("Combined sensor data to save:", combinedData);
 
           await saveDataMutation.mutateAsync(combinedData);
 
           console.log("Sensor data sent to tRPC for saving");
         } else if (topic === "data/actuator") {
-          const data: ActuatorData = { ...JSON.parse(msg), time: currentTime };
+          const data: ActuatorData = { ...JSON.parse(msg), time: currentTimeString };
+          console.log(`Received message from '${topic}': ${msg}`);
           setActuatorData(data);
 
           // Update last watered and fanned times if the actuator data is true
@@ -227,7 +229,7 @@ export function DashboardComponent() {
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl">
         <h1 className="mb-6 text-3xl font-bold">
-          IoT Plant Monitoring Dashboard
+          Plantiva - Dashboard
         </h1>
 
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -385,6 +387,9 @@ export function DashboardComponent() {
 }
 
 // TODO:
-// - Cut all time by -7 because of timezone GMT+7
+// The data being fetched is already in correct time, so don't add +7 hours
+// Add +7 to the received data from mqtt (sensorData and actuatorData?)
+
+// TODO:
 // - Make the chart display in interval of 1h only
 // - Seperate MQTT logic to mqtt-client
